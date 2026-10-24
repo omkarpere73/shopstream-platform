@@ -140,6 +140,19 @@ Failure-behaviour claims for Pub/Sub acknowledgement and retention depend on the
 
 **Consistency rule:** every row above matches one arrow label in `streaming-path.png`. If the diagram changes, update this table in the same pull request.
 
+### 4.4 Environments
+
+| Item | Decision |
+|---|---|
+| Environments | Two separate GCP projects: `shopstream-dev` and `shopstream-prod` (ADR-007: blast-radius isolation, separate IAM and budgets) |
+| Region | `asia-south1` (Mumbai), **proposed**. To verify before Terraform: Dataproc, Datastream and Composer availability there. Keep Pub/Sub, GCS, Dataproc and BigQuery in one region to avoid cross-region cost and latency |
+| Dev | Daily development, small volumes, torn down after each session |
+| Prod | Changed only by CD from `main` after manual approval. For a portfolio project it runs only during demo and test windows |
+| Labels | Every resource carries `env`, `owner`, `project` |
+| Budgets | `budget-dev` and `budget-prod`, alerts at 50, 80 and 100 percent |
+| Secrets | Secret Manager only. Never in the repo |
+| Local setup | No default gcloud project is set, so each command names its project explicitly |
+
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
