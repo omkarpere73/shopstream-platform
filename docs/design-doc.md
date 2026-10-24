@@ -11,7 +11,7 @@ This is a portfolio project built on simulated data to practice production data 
 
 | ID | Stakeholder | Goal | How we will measure it |
 |---|---|---|---|
-| G1 | Marketing | Live funnel and sales dashboards | From the simulator publishing an event to it being queryable in Silver: under 60 seconds at p95. Measured from publish time, not `event_time`, which is client time |
+| G1 | Marketing | Live funnel data | From the simulator publishing an event to it being saved in Silver: under 60 seconds at p95. The start clock is the Pub/Sub publish timestamp, not `event_time`, which is client time. The end clock is the Silver commit time. The Silver to BigQuery delay is measured separately (see Section 8) |
 | G2 | Marketing, Finance | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
 | G3 | Customer success | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
 | G4 | Finance | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
@@ -43,3 +43,11 @@ Engineering goals: all infrastructure in Terraform, every change through a pull 
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
 ## 8. Open questions
+
+Each question has an owner and a date to resolve it.
+
+1. **How will BigQuery read the Iceberg Silver tables, and how much delay does that add?** This decides whether the dashboard is as fresh as G1. Owner: me. Resolve by: end of Week 3.
+2. **Does the Datastream staleness setting for BigQuery allow G3 (2 minutes)?** I must check the docs before promising it. Owner: me. Resolve by: start of Week 4, before configuring CDC.
+3. **How do we route events older than the watermark to a late-data table (G2)?** Spark discards them by default, so we need our own logic. Owner: me. Resolve by: end of Week 3.
+4. **How do we handle 06:00 IST for G4 when Airflow defaults to UTC?** 06:00 IST is 00:30 UTC. Owner: me. Resolve by: end of Week 2, when the first DAG is written.
+
