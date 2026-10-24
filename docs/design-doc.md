@@ -38,6 +38,15 @@ Engineering goals: all infrastructure in Terraform, every change through a pull 
 - **Sustained peak throughput.** The simulator can reach 5,000 events per second, but we run it at that rate only briefly for benchmarks, because holding it would burn the trial credit without new learning.
 
 ## 3. Stakeholders and requirements
+
+### 3.1 How each goal is measured
+
+G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an end point and a place where the result is written down.
+
+| Goal | Start point | End point | Where recorded |
+|---|---|---|---|
+| G1: event saved in Silver within 60 s at p95 | Time Pub/Sub receives the event (set by Pub/Sub's server) | Time the Spark job saves the event in Silver | `docs/measurements/latency.md` |
+
 ## 4. Architecture overview
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
