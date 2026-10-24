@@ -59,6 +59,33 @@ G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an
 | G7b: Pub/Sub backlog alert within 5 min | Time the streaming job is paused on purpose | Time the alert email arrives | `docs/measurements/alert-latency.md` |
 | G7c: stale data alert within 5 min | Time the simulator is stopped on purpose | Time the alert email arrives | `docs/measurements/alert-latency.md` |
 
+### 3.2 Latency budget
+
+G1 allows 60 seconds from Pub/Sub receiving an event to that event being saved in Silver. This table splits the 60 seconds into stages. Stage 3 is a design choice (the trigger interval), and the other stages are placeholders until measured in Week 3.
+
+| Stage | What happens | Budget |
+|---|---|---|
+| 1 | Pub/Sub makes the event available to Spark (the G1 clock starts when Pub/Sub receives it) | TBD (measure in Week 3) |
+| 2 | Spark picks the event up from Pub/Sub | TBD (measure in Week 3) |
+| 3 | Event waits for the next micro-batch to start | Up to 30 s (trigger interval) |
+| 4 | Spark processes the batch (parse, dedupe) | TBD (measure in Week 3) |
+| 5 | Spark saves the batch to Silver (Iceberg commit) | TBD (measure in Week 3) |
+
+Stage 3 can use half of the 60 seconds, so stages 1, 2, 4 and 5 must fit in the remaining 30 seconds. If the measured total exceeds 60 s at p95, the first lever is a shorter trigger interval, at the cost of more small files.
+
+### 3.3 Capacity estimate
+
+These numbers are back-of-envelope estimates based on the 1 KB per event assumption in Section 1. They will be replaced by the simulator's measured average event size.
+
+| Scenario | Events per second | Events per day | Data per second | Data per day |
+|---|---|---|---|---|
+| Peak (benchmark only, run for minutes) | 5,000 | 432 million | about 5 MB | about 432 GB |
+| Development rate | 100 | 8.64 million | about 0.1 MB | about 8.6 GB |
+
+The platform only runs during work sessions, so real daily volume is far below these figures. Cost of one peak benchmark run: TBD (INR, from the billing report in Week 3).
+
+If data were 100 times larger, the first things to revisit would be Spark cluster size, the trigger interval (to avoid small files) and BigQuery partitioning.
+
 ## 4. Architecture overview
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
