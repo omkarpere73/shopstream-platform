@@ -21,6 +21,13 @@ This is a portfolio project built on simulated data to practice production data 
 
 Engineering goals: all infrastructure in Terraform, every change through a pull request with automated checks, every pipeline idempotent and restartable, and measured before-and-after numbers for performance and cost.
 
+### Assumptions
+
+- All data is simulated. There are no real customers.
+- Everything runs in a single GCP region.
+- The environment is only switched on during work sessions, so freshness and alert goals (G1, G3, G7) only apply while it is running.
+- An average event is about 1 KB of JSON. This is a guess and will be replaced by the real average measured from the simulator.
+- Free trial credit is the budget limit, and budget alerts warn but do not stop spending.
 
 ## 2. Non-goals (what we deliberately won't build)
 - **Multi-region deployment and disaster recovery.** It multiplies cost and failure modes without teaching anything the single-region design does not already cover.
