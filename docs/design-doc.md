@@ -49,6 +49,7 @@ G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an
 | G2a: no duplicates | Silver row count before the replay | Silver row count after the replay (must be equal) | `docs/measurements/dedupe.md` |
 | G2b: 8 min late events still included | Simulator sends an event with `event_time` 8 min in the past | Event found in the correct 1-minute window in Silver | `docs/measurements/late-events.md` |
 | G2c: 15 min late events go to the late-data table | Simulator sends an event with `event_time` 15 min in the past | Event found in the late-data table and not in Silver windows | `docs/measurements/late-events.md` |
+| G3: Postgres insert, update and delete visible in BigQuery within 2 min at p95 | Timestamp written in the Postgres row when the change is made (source clock) | Time the change first shows up in a BigQuery query (query time) | `docs/measurements/cdc-latency.md` |
 
 ## 4. Architecture overview
 ## 5. Data sources and data design
