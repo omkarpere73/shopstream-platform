@@ -120,11 +120,25 @@ Editable source: `diagrams/streaming-path.excalidraw`.
 | Pub/Sub topic | Buffers events between producer and Spark | Managed by Google | Managed service; messages are retained until acknowledged | Oldest unacked message age over 5 minutes |
 | Spark Structured Streaming job | Parse, validate, write Bronze, dedupe, write Silver | Checkpoint on GCS (job holds no durable state) | Unacknowledged messages stay in Pub/Sub. A restart resumes from the checkpoint. A half-finished batch may be replayed, so sinks must be idempotent. | Job not running, or processing lag growing for 10 minutes |
 | Dead-letter sink | Quarantines rows that fail parse or validation | GCS path or Pub/Sub topic (pending ADR-008) | Bad rows could be lost, so this sink must be at least as reliable as Bronze | Dead-letter rate over threshold (TBD) |
-| Bronze (Iceberg on GCS) | Faithful raw copy of valid events, before dedupe | GCS | Reprocess from Pub/Sub if still retained, else from the ground-truth comparison | Volume vs 7-day baseline (guide Section 15) |
+| Bronze (Iceberg on GCS) | Faithful raw copy of valid events, before dedupe | GCS | Raw valid events could be lost. Replay from Pub/Sub works only if retention of acknowledged messages is enabled (pending ADR). The ground-truth log holds IDs only, so it detects loss but cannot restore data. GCS object versioning is a mitigation (TBD) | Volume vs 7-day baseline (guide Section 15) |
 | Silver (Iceberg on GCS) | Deduplicated, typed events | GCS | Rebuild from Bronze | Freshness: max event_time older than 10 minutes |
 | Checkpoint (GCS) | Offsets, state and a log of finished batches | GCS, one path per query, never shared | If lost, the job cannot resume safely and must be rebuilt from Bronze | Bucket versioning and access alerts (TBD, Week 3) |
 
 Failure-behaviour claims for Pub/Sub acknowledgement and retention depend on the connector chosen in the pending ADR. Verify against the official docs in Week 3.
+
+### 4.3 Data flows (one row per arrow in the diagram)
+
+| # | From | To | What flows | Guarantee or rule |
+|---|---|---|---|---|
+| 1 | Event simulator | Pub/Sub topic | JSON events, schema_version 2 | Checked against the Pub/Sub schema. Delivery can repeat, and the simulator also injects 1 to 2 percent duplicates on purpose |
+| 2 | Event simulator | Ground-truth log | Every event ID sent | Written at send time by the simulator, independent of the pipeline |
+| 3 | Pub/Sub topic | Spark job | Messages read through the connector | Acknowledgement and offset behaviour depends on the connector (pending ADR, verify in Week 3) |
+| 4 | Spark job | Dead-letter sink | Rows that fail parse or validation | Raw payload, error reason and ingestion time are kept. The pipeline keeps running |
+| 5 | Spark job | Bronze | Valid events, append only | Written before dedupe, partitioned by event date. Duplicates are kept |
+| 6 | Spark job | Silver | Deduplicated events | Dedupe on event_id within the 10-minute watermark on event_time. Idempotent write: MERGE on event_id in foreachBatch (guide Section 9.2) |
+| 7 | Spark job and checkpoint (both ways) | | Offsets, state, commit log | One checkpoint path per query, never shared. Read on restart, written after each batch |
+
+**Consistency rule:** every row above matches one arrow label in `streaming-path.png`. If the diagram changes, update this table in the same pull request.
 
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
