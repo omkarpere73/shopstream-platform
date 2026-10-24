@@ -9,15 +9,15 @@ ShopStream is a fictional online retailer. Today its teams work from different, 
 
 This is a portfolio project built on simulated data to practice production data engineering patterns. It is not a production system.
 
-| ID | Goal | How we will measure it |
-|---|---|---|
-| G1 | Live funnel and sales dashboards | From the simulator publishing an event to it being queryable in Silver: under 60 seconds at p95. Measured from publish time, not `event_time`, which is client time |
-| G2 | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
-| G3 | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
-| G4 | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
-| G5 | PII protected by default | Analyst role sees masked email and phone; steward role sees raw values |
-| G6 | Safe reprocessing | A 30-day backfill reproduces the original row counts and checksums |
-| G7 | Failures are noticed fast | Alerts within 5 minutes for pipeline failure, Pub/Sub backlog and stale data |
+| ID | Stakeholder | Goal | How we will measure it |
+|---|---|---|---|
+| G1 | Marketing | Live funnel and sales dashboards | From the simulator publishing an event to it being queryable in Silver: under 60 seconds at p95. Measured from publish time, not `event_time`, which is client time |
+| G2 | Marketing, Finance | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
+| G3 | Customer success | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
+| G4 | Finance | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
+| G5 | Security and compliance | PII protected by default | Analyst role sees masked email and phone; steward role sees raw values |
+| G6 | Engineering leadership | Safe reprocessing | A 30-day backfill reproduces the original row counts and checksums |
+| G7 | Engineering leadership | Failures are noticed fast | Alerts within 5 minutes for pipeline failure, Pub/Sub backlog and stale data |
 
 Engineering goals: all infrastructure in Terraform, every change through a pull request with automated checks, every pipeline idempotent and restartable, and measured before-and-after numbers for performance and cost.
 
