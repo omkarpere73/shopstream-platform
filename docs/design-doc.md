@@ -87,6 +87,30 @@ The platform only runs during work sessions, so real daily volume is far below t
 If data were 100 times larger, the first things to revisit would be Spark cluster size, the trigger interval (to avoid small files) and BigQuery partitioning.
 
 ## 4. Architecture overview
+
+### 4.1 Streaming path (diagram pass 1)
+
+This section covers the streaming path only. CDC, the FX batch job, BigQuery, dbt and Composer are added in diagram pass 2.
+
+![ShopStream streaming path](diagrams/streaming-path.png)
+
+Editable source: `diagrams/streaming-path.excalidraw`.
+
+**One event, left to right**
+
+1. The event simulator sends a JSON event (schema_version 2) to a Pub/Sub topic. It also writes the event ID to a ground-truth log at send time. The log is what lets us prove "no loss, no duplicates" after a restart.
+2. One Spark Structured Streaming job on Dataproc reads from Pub/Sub. The read mechanism (Pub/Sub connector or a fallback) is pending an ADR.
+3. The job parses and validates each row against an explicit schema. Rows that fail go to the dead-letter sink with the raw payload, the error reason and the ingestion time. The sink type (GCS path or Pub/Sub topic) is pending ADR-008. The pipeline keeps running.
+4. Valid rows are appended untouched to Bronze (Iceberg on GCS, partitioned by event date). Bronze is written before dedupe, so it keeps duplicates and is a faithful record of what arrived.
+5. The job then deduplicates on `event_id` inside a 10-minute watermark on `event_time` and writes Silver (Iceberg on GCS).
+6. Each query writes offsets and state to its own checkpoint path on GCS, and reads them back on restart. Checkpoint locations are never shared between queries.
+
+**Accounting rule:** Bronze rows plus dead-letter rows should equal the events in the ground-truth log, duplicates included. This is the check for the restart test.
+
+**Latency link:** the 30 s trigger in the diagram is the stage-3 allowance in the latency budget (Section 3.2).
+
+**Not decided yet:** where events later than the watermark go is an open question (Section 8).
+
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
