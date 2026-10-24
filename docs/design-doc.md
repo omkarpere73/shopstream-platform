@@ -111,6 +111,21 @@ Editable source: `diagrams/streaming-path.excalidraw`.
 
 **Not decided yet:** where events later than the watermark go is an open question (Section 8).
 
+### 4.2 Components and failure behaviour
+
+| Component | Role | Where its state lives | If it fails | Detection |
+|---|---|---|---|---|
+| Event simulator | Generates events with duplicates, late and malformed rows | Stateless; writes the ground-truth log | Events stop arriving. Nothing downstream is corrupted. | Freshness alert on Silver (TBD threshold, see Section 8) |
+| Ground-truth log | Independent record of every event ID sent | Durable file or table (location TBD) | Cannot prove no-loss for that run. Pipeline is unaffected. | Manual check before each restart test |
+| Pub/Sub topic | Buffers events between producer and Spark | Managed by Google | Managed service; messages are retained until acknowledged | Oldest unacked message age over 5 minutes |
+| Spark Structured Streaming job | Parse, validate, write Bronze, dedupe, write Silver | Checkpoint on GCS (job holds no durable state) | Unacknowledged messages stay in Pub/Sub. A restart resumes from the checkpoint. A half-finished batch may be replayed, so sinks must be idempotent. | Job not running, or processing lag growing for 10 minutes |
+| Dead-letter sink | Quarantines rows that fail parse or validation | GCS path or Pub/Sub topic (pending ADR-008) | Bad rows could be lost, so this sink must be at least as reliable as Bronze | Dead-letter rate over threshold (TBD) |
+| Bronze (Iceberg on GCS) | Faithful raw copy of valid events, before dedupe | GCS | Reprocess from Pub/Sub if still retained, else from the ground-truth comparison | Volume vs 7-day baseline (guide Section 15) |
+| Silver (Iceberg on GCS) | Deduplicated, typed events | GCS | Rebuild from Bronze | Freshness: max event_time older than 10 minutes |
+| Checkpoint (GCS) | Offsets, state and a log of finished batches | GCS, one path per query, never shared | If lost, the job cannot resume safely and must be rebuilt from Bronze | Bucket versioning and access alerts (TBD, Week 3) |
+
+Failure-behaviour claims for Pub/Sub acknowledgement and retention depend on the connector chosen in the pending ADR. Verify against the official docs in Week 3.
+
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
