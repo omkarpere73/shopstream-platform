@@ -10,7 +10,7 @@ Done:
 - GCP account with free trial; projects `shopstream-dev` and `shopstream-prod`
 - Budgets: `budget-dev` and `budget-prod`, alerts at 50/80/100%
 - Branch protection proven: a direct push to `main` was rejected by the server
-  (server error GH013: changes must be made through a pull request)
+  (evidence: [rejection screenshot](evidence/branch-protection-rejection.png))
 - Design doc sections 1 and 2 merged via PR #16
 
 Broke and how I fixed it:

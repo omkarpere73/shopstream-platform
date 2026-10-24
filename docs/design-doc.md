@@ -9,18 +9,25 @@ ShopStream is a fictional online retailer. Today its teams work from different, 
 
 This is a portfolio project built on simulated data to practice production data engineering patterns. It is not a production system.
 
-| ID | Goal | How we will measure it |
-|---|---|---|
-| G1 | Live funnel and sales dashboards | From the simulator publishing an event to it being queryable in Silver: under 60 seconds at p95. Measured from publish time, not `event_time`, which is client time |
-| G2 | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
-| G3 | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
-| G4 | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
-| G5 | PII protected by default | Analyst role sees masked email and phone; steward role sees raw values |
-| G6 | Safe reprocessing | A 30-day backfill reproduces the original row counts and checksums |
-| G7 | Failures are noticed fast | Alerts within 5 minutes for pipeline failure, Pub/Sub backlog and stale data |
+| ID | Stakeholder | Goal | How we will measure it |
+|---|---|---|---|
+| G1 | Marketing | Live funnel data | From the simulator publishing an event to it being saved in Silver: under 60 seconds at p95. The start clock is the Pub/Sub publish timestamp, not `event_time`, which is client time. The end clock is the Silver commit time. The Silver to BigQuery delay is measured separately (see Section 8) |
+| G2 | Marketing, Finance | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
+| G3 | Customer success | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
+| G4 | Finance | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
+| G5 | Security and compliance | PII protected by default | Analyst role sees masked email and phone; steward role sees raw values |
+| G6 | Engineering leadership | Safe reprocessing | A 30-day backfill reproduces the original row counts and checksums |
+| G7 | Engineering leadership | Failures are noticed fast | Alerts within 5 minutes for pipeline failure, Pub/Sub backlog and stale data |
 
 Engineering goals: all infrastructure in Terraform, every change through a pull request with automated checks, every pipeline idempotent and restartable, and measured before-and-after numbers for performance and cost.
 
+### Assumptions
+
+- All data is simulated. There are no real customers.
+- Everything runs in a single GCP region.
+- The environment is only switched on during work sessions, so freshness and alert goals (G1, G3, G7) only apply while it is running.
+- An average event is about 1 KB of JSON. This is a guess and will be replaced by the real average measured from the simulator.
+- Free trial credit is the budget limit, and budget alerts warn but do not stop spending.
 
 ## 2. Non-goals (what we deliberately won't build)
 - **Multi-region deployment and disaster recovery.** It multiplies cost and failure modes without teaching anything the single-region design does not already cover.
@@ -36,3 +43,11 @@ Engineering goals: all infrastructure in Terraform, every change through a pull 
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
 ## 8. Open questions
+
+Each question has an owner and a date to resolve it.
+
+1. **How will BigQuery read the Iceberg Silver tables, and how much delay does that add?** This decides whether the dashboard is as fresh as G1. Owner: me. Resolve by: end of Week 3.
+2. **Does the Datastream staleness setting for BigQuery allow G3 (2 minutes)?** I must check the docs before promising it. Owner: me. Resolve by: start of Week 4, before configuring CDC.
+3. **How do we route events older than the watermark to a late-data table (G2)?** Spark discards them by default, so we need our own logic. Owner: me. Resolve by: end of Week 3.
+4. **How do we handle 06:00 IST for G4 when Airflow defaults to UTC?** 06:00 IST is 00:30 UTC. Owner: me. Resolve by: end of Week 2, when the first DAG is written.
+
