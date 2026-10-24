@@ -54,6 +54,7 @@ G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an
 | G4b: daily marts ready by 06:00 IST (00:30 UTC) | Daily job starts (Airflow run start, UTC) | Gold tables finish building (must be before 00:30 UTC) | `docs/measurements/mart-readiness.md` |
 | G5a: PII masked for analysts, raw for stewards | Same query run as the analyst role, then as the steward role | Analyst sees masked email and phone, steward sees raw values (screenshot of both) | `docs/measurements/pii-masking.md` |
 | G5b: access to PII columns is auditable | A query reads a PII column as a named role | The access log shows who read it and when | `docs/measurements/pii-audit.md` |
+| G6: 30-day backfill reproduces the original | Row count and checksum of the 30-day range from the original run | Row count and checksum after the backfill (must be identical) | `docs/measurements/backfill.md` |
 
 ## 4. Architecture overview
 ## 5. Data sources and data design
