@@ -52,6 +52,8 @@ G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an
 | G3: Postgres insert, update and delete visible in BigQuery within 2 min at p95 | Timestamp written in the Postgres row when the change is made (source clock) | Time the change first shows up in a BigQuery query (query time) | `docs/measurements/cdc-latency.md` |
 | G4a: revenue matches source orders to the cent | Total revenue from the source orders table for one day | Total from the Gold daily revenue table for the same day (difference must be 0.00) | `docs/measurements/reconciliation.md` |
 | G4b: daily marts ready by 06:00 IST (00:30 UTC) | Daily job starts (Airflow run start, UTC) | Gold tables finish building (must be before 00:30 UTC) | `docs/measurements/mart-readiness.md` |
+| G5a: PII masked for analysts, raw for stewards | Same query run as the analyst role, then as the steward role | Analyst sees masked email and phone, steward sees raw values (screenshot of both) | `docs/measurements/pii-masking.md` |
+| G5b: access to PII columns is auditable | A query reads a PII column as a named role | The access log shows who read it and when | `docs/measurements/pii-audit.md` |
 
 ## 4. Architecture overview
 ## 5. Data sources and data design
