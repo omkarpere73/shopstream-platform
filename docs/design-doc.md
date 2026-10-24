@@ -59,6 +59,20 @@ G1 to G7 match F1 to F7 in the project guide. Every goal needs a start point, an
 | G7b: Pub/Sub backlog alert within 5 min | Time the streaming job is paused on purpose | Time the alert email arrives | `docs/measurements/alert-latency.md` |
 | G7c: stale data alert within 5 min | Time the simulator is stopped on purpose | Time the alert email arrives | `docs/measurements/alert-latency.md` |
 
+### 3.2 Latency budget
+
+G1 allows 60 seconds from Pub/Sub receiving an event to that event being saved in Silver. This table splits the 60 seconds into stages. Stage 3 is a design choice (the trigger interval), and the other stages are placeholders until measured in Week 3.
+
+| Stage | What happens | Budget |
+|---|---|---|
+| 1 | Simulator publishes the event to Pub/Sub | TBD (measure in Week 3) |
+| 2 | Spark picks the event up from Pub/Sub | TBD (measure in Week 3) |
+| 3 | Event waits for the next micro-batch to start | Up to 30 s (trigger interval) |
+| 4 | Spark processes the batch (parse, dedupe) | TBD (measure in Week 3) |
+| 5 | Spark saves the batch to Silver (Iceberg commit) | TBD (measure in Week 3) |
+
+Stage 3 can use half of the 60 seconds, so stages 1, 2, 4 and 5 must fit in the remaining 30 seconds. If the measured total exceeds 60 s at p95, the first lever is a shorter trigger interval, at the cost of more small files.
+
 ## 4. Architecture overview
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
