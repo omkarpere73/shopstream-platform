@@ -87,6 +87,72 @@ The platform only runs during work sessions, so real daily volume is far below t
 If data were 100 times larger, the first things to revisit would be Spark cluster size, the trigger interval (to avoid small files) and BigQuery partitioning.
 
 ## 4. Architecture overview
+
+### 4.1 Streaming path (diagram pass 1)
+
+This section covers the streaming path only. CDC, the FX batch job, BigQuery, dbt and Composer are added in diagram pass 2.
+
+![ShopStream streaming path](diagrams/streaming-path.png)
+
+Editable source: `diagrams/streaming-path.excalidraw`.
+
+**One event, left to right**
+
+1. The event simulator sends a JSON event (schema_version 2) to a Pub/Sub topic. It also writes the event ID to a ground-truth log at send time. The log is what lets us prove "no loss, no duplicates" after a restart.
+2. One Spark Structured Streaming job on Dataproc reads from Pub/Sub. The read mechanism (Pub/Sub connector or a fallback) is pending an ADR.
+3. The job parses and validates each row against an explicit schema. Rows that fail go to the dead-letter sink with the raw payload, the error reason and the ingestion time. The sink type (GCS path or Pub/Sub topic) is pending ADR-008. The pipeline keeps running.
+4. Valid rows are appended untouched to Bronze (Iceberg on GCS, partitioned by event date). Bronze is written before dedupe, so it keeps duplicates and is a faithful record of what arrived.
+5. The job then deduplicates on `event_id` inside a 10-minute watermark on `event_time` and writes Silver (Iceberg on GCS).
+6. Each query writes offsets and state to its own checkpoint path on GCS, and reads them back on restart. Checkpoint locations are never shared between queries.
+
+**Accounting rule:** Bronze rows plus dead-letter rows should equal the events in the ground-truth log, duplicates included. This is the check for the restart test.
+
+**Latency link:** the 30 s trigger in the diagram is the stage-3 allowance in the latency budget (Section 3.2).
+
+**Not decided yet:** where events later than the watermark go is an open question (Section 8).
+
+### 4.2 Components and failure behaviour
+
+| Component | Role | Where its state lives | If it fails | Detection |
+|---|---|---|---|---|
+| Event simulator | Generates events with duplicates, late and malformed rows | Stateless; writes the ground-truth log | Events stop arriving. Nothing downstream is corrupted. | Freshness alert on Silver (TBD threshold, see Section 8) |
+| Ground-truth log | Independent record of every event ID sent | Durable file or table (location TBD) | Cannot prove no-loss for that run. Pipeline is unaffected. | Manual check before each restart test |
+| Pub/Sub topic | Buffers events between producer and Spark | Managed by Google | Managed service; messages are retained until acknowledged | Oldest unacked message age over 5 minutes |
+| Spark Structured Streaming job | Parse, validate, write Bronze, dedupe, write Silver | Checkpoint on GCS (job holds no durable state) | Unacknowledged messages stay in Pub/Sub. A restart resumes from the checkpoint. A half-finished batch may be replayed, so sinks must be idempotent. | Job not running, or processing lag growing for 10 minutes |
+| Dead-letter sink | Quarantines rows that fail parse or validation | GCS path or Pub/Sub topic (pending ADR-008) | Bad rows could be lost, so this sink must be at least as reliable as Bronze | Dead-letter rate over threshold (TBD) |
+| Bronze (Iceberg on GCS) | Faithful raw copy of valid events, before dedupe | GCS | Raw valid events could be lost. Replay from Pub/Sub works only if retention of acknowledged messages is enabled (pending ADR). The ground-truth log holds IDs only, so it detects loss but cannot restore data. GCS object versioning is a mitigation (TBD) | Volume vs 7-day baseline (guide Section 15) |
+| Silver (Iceberg on GCS) | Deduplicated, typed events | GCS | Rebuild from Bronze | Freshness: max event_time older than 10 minutes |
+| Checkpoint (GCS) | Offsets, state and a log of finished batches | GCS, one path per query, never shared | If lost, the job cannot resume safely and must be rebuilt from Bronze | Bucket versioning and access alerts (TBD, Week 3) |
+
+Failure-behaviour claims for Pub/Sub acknowledgement and retention depend on the connector chosen in the pending ADR. Verify against the official docs in Week 3.
+
+### 4.3 Data flows (one row per arrow in the diagram)
+
+| # | From | To | What flows | Guarantee or rule |
+|---|---|---|---|---|
+| 1 | Event simulator | Pub/Sub topic | JSON events, schema_version 2 | Checked against the Pub/Sub schema. Delivery can repeat, and the simulator also injects 1 to 2 percent duplicates on purpose |
+| 2 | Event simulator | Ground-truth log | Every event ID sent | Written at send time by the simulator, independent of the pipeline |
+| 3 | Pub/Sub topic | Spark job | Messages read through the connector | Acknowledgement and offset behaviour depends on the connector (pending ADR, verify in Week 3) |
+| 4 | Spark job | Dead-letter sink | Rows that fail parse or validation | Raw payload, error reason and ingestion time are kept. The pipeline keeps running |
+| 5 | Spark job | Bronze | Valid events, append only | Written before dedupe, partitioned by event date. Duplicates are kept |
+| 6 | Spark job | Silver | Deduplicated events | Dedupe on event_id within the 10-minute watermark on event_time. Idempotent write: MERGE on event_id in foreachBatch (guide Section 9.2) |
+| 7 | Spark job and checkpoint (both ways) | | Offsets, state, commit log | One checkpoint path per query, never shared. Read on restart, written after each batch |
+
+**Consistency rule:** every row above matches one arrow label in `streaming-path.png`. If the diagram changes, update this table in the same pull request.
+
+### 4.4 Environments
+
+| Item | Decision |
+|---|---|
+| Environments | Two separate GCP projects: `shopstream-dev` and `shopstream-prod` (ADR-007: blast-radius isolation, separate IAM and budgets) |
+| Region | `asia-south1` (Mumbai), **proposed**. To verify before Terraform: Dataproc, Datastream and Composer availability there. Keep Pub/Sub, GCS, Dataproc and BigQuery in one region to avoid cross-region cost and latency |
+| Dev | Daily development, small volumes, torn down after each session |
+| Prod | Changed only by CD from `main` after manual approval. For a portfolio project it runs only during demo and test windows |
+| Labels | Every resource carries `env`, `owner`, `project` |
+| Budgets | `budget-dev` and `budget-prod`, alerts at 50, 80 and 100 percent |
+| Secrets | Secret Manager only. Never in the repo |
+| Local setup | No default gcloud project is set, so each command names its project explicitly |
+
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
 ## 7. Risks and mitigations
