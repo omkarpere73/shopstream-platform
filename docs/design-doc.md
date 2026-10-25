@@ -145,13 +145,29 @@ Failure-behaviour claims for Pub/Sub acknowledgement and retention depend on the
 | Item | Decision |
 |---|---|
 | Environments | Two separate GCP projects: `shopstream-dev` and `shopstream-prod` (ADR-007: blast-radius isolation, separate IAM and budgets) |
-| Region | `asia-south1` (Mumbai), **proposed**. To verify before Terraform: Dataproc, Datastream and Composer availability there. Keep Pub/Sub, GCS, Dataproc and BigQuery in one region to avoid cross-region cost and latency |
+| Region | `asia-south1` (Mumbai), **accepted** after checking the official docs (see 4.5). Keep GCS, Dataproc, BigQuery, Datastream and Cloud SQL in this region, and restrict Pub/Sub message storage to it with a message storage policy, to avoid cross-region cost and latency |
 | Dev | Daily development, small volumes, torn down after each session |
 | Prod | Changed only by CD from `main` after manual approval. For a portfolio project it runs only during demo and test windows |
 | Labels | Every resource carries `env`, `owner`, `project` |
 | Budgets | `budget-dev` and `budget-prod`, alerts at 50, 80 and 100 percent |
 | Secrets | Secret Manager only. Never in the repo |
 | Local setup | No default gcloud project is set, so each command names its project explicitly |
+
+### 4.5 Region verification (F-8)
+
+Checked against official Google Cloud docs on 25 Oct 2026. Decision: `asia-south1` (Mumbai).
+
+| Service | In asia-south1? | Source (docs.cloud.google.com unless noted) | Note |
+|---|---|---|---|
+| Datastream | Yes | datastream/docs/ip-allowlists-and-regions | Listed in the regions table |
+| Dataproc clusters (now called Managed Service for Apache Spark) | Yes | dataproc/docs/resources/faq, dataproc/docs/concepts/cluster-region | FAQ says all regions and zones |
+| Dataproc Serverless batches | Likely, not directly confirmed | Billing SKU lists only | Prove with a tiny batch job in Week 4 |
+| Cloud Composer | Composer 3: yes. Composer 2: not verified | cloud.google.com/composer/pricing | Choose version in ADR-005 |
+| Pub/Sub | Yes, through a message storage policy | pubsub/docs/resource-location-restriction | Topics are global, so restrict where messages are stored |
+| BigQuery | Yes | bigquery/docs/locations | Datasets can be created in asia-south1 |
+| Cloud SQL (Postgres) | Yes | sql/docs/postgres/region-availability-overview | Location is chosen at instance creation. N4 machines not listed for Mumbai |
+
+Open items: Composer 2 vs 3 (ADR-005), Dataproc Serverless proof (Week 4), exact Terraform syntax for the Pub/Sub storage policy (Week 3).
 
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
