@@ -4,6 +4,12 @@ variable "project_id" {
   default     = "shopstream-dev"
 }
 
+variable "region" {
+  description = "Default GCP region for regional resources (verified in design doc section 4.5)."
+  type        = string
+  default     = "asia-south1"
+}
+
 variable "labels" {
   description = "Labels applied to every labelable resource (cost tracking)."
   type        = map(string)
