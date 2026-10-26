@@ -234,6 +234,17 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-007 | Dev and prod as separate GCP projects | Not written | Blast-radius isolation, separate IAM and budgets. |
 | ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
 ## 7. Risks and mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Cloud cost overrun | Medium | High | Budget alerts, teardown script, small volumes, environment only on during sessions |
+| Pub/Sub to Spark connector difficulties | Medium | Medium | Time-box to 2 days; fall back to a Kafka-compatible bridge or Pub/Sub to GCS micro-batch; record in an ADR (open question 8) |
+| Scope too big | High | Medium | Build the core path first (streaming, dbt, Airflow), then CDC, governance, extras |
+| Iceberg and BigQuery integration friction | Medium | Medium | Use BigLake tables or export Silver to native BigQuery tables; document the choice (open question 1) |
+| Time shortage | Medium | Medium | Cut in this order: Dataplex extras, Looker polish, Debezium. Never cut tests, CI/CD, runbook or drills |
+| Composer 2 not creatable or Composer 3 costs more | Medium | Medium | Check availability and INR cost before ADR-005; fall back to Cloud Scheduler plus Cloud Run jobs (open question 6) |
+| Dataproc Serverless not available in asia-south1 | Low | Medium | Prove with one real job in Week 4; fall back to a small Dataproc cluster in the same region (open question 7) |
+| Google provider 8.0 breaking changes | Medium | Low | Pinned to ~> 7.0 with committed lock files; upgrade later in its own PR after reading the upgrade guide |
 ## 8. Open questions
 
 Each question has an owner and a date to resolve it.
