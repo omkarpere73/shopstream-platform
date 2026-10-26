@@ -174,6 +174,51 @@ Checked against official Google Cloud docs on 25 Oct 2026. Decision: `asia-south
 Open items: Composer 2 vs 3 (ADR-005), Dataproc Serverless proof (Week 4), exact Terraform syntax for the Pub/Sub storage policy (Week 3).
 
 ## 5. Data sources and data design
+
+### 5.1 Clickstream events (JSON via Pub/Sub)
+
+| Field | Type | Notes |
+|---|---|---|
+| event_id | string (UUID) | Dedup key |
+| event_type | string | page_view, product_view, add_to_cart, checkout_start, purchase |
+| event_time | timestamp | Client time, used for event-time windows |
+| user_id | string | Nullable for anonymous sessions |
+| session_id | string | |
+| product_id | string | |
+| price | decimal | |
+| device, country | string | |
+| schema_version | int | Used to demonstrate schema evolution (v3 adds coupon_code) |
+
+The simulator injects problems on purpose: 1 to 2 percent duplicates, 2 to 5 percent late events (up to 10 minutes), 0.5 percent malformed events, and occasional bursts. It also writes a ground-truth log of what it sent, so counts can be proven after a restart or replay.
+
+### 5.2 Postgres OLTP (via Datastream)
+
+Tables: customers, addresses, products, orders, order_items, payments. The generator simulates inserts, updates (address change, order status: placed, paid, shipped, delivered, refunded) and occasional deletes (GDPR-style customer deletion).
+
+### 5.3 FX rates API (daily batch)
+
+Daily rates from a free public exchange-rate API, landed as Parquet partitioned by date. Finance uses them to convert revenue to USD. Re-running a date overwrites only that partition.
+
+### 5.4 Gold model (star schema)
+
+| Table | Grain | Key points |
+|---|---|---|
+| fct_orders | One row per order item | Partitioned by order date, clustered by customer_id |
+| fct_events_funnel_hourly | Hour, product, event_type | Incremental from Silver |
+| fct_daily_revenue | Day, country | Net of refunds, INR and USD |
+| dim_customer | One row per customer version | SCD Type 2: valid_from, valid_to, is_current |
+| dim_product | One row per product | Type 1 (overwrite) |
+| dim_date | One row per date | Generated |
+| mart_customer_360 | One row per customer | LTV, order count, last order, recency segment |
+
+### 5.5 PII classification
+
+| Column | Class | Treatment |
+|---|---|---|
+| email, phone, full_name | High | Policy tag, masked for general readers |
+| address | High | Policy tag; Gold exposes only city and state to analysts |
+| user_id, customer_id | Medium | Pseudonymous, joins allowed |
+| price, quantity | Low | Open |
 ## 6. Key design decisions (link ADRs)
 
 Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered, Decision, Consequences). Update the status here when each one lands (issue #13).
