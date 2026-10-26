@@ -12,10 +12,13 @@ This is a portfolio project built on simulated data to practice production data 
 | ID | Stakeholder | Goal | How we will measure it |
 |---|---|---|---|
 | G1 | Marketing | Live funnel data | From the simulator publishing an event to it being saved in Silver: under 60 seconds at p95. The start clock is the Pub/Sub publish timestamp, not `event_time`, which is client time. The end clock is the Silver commit time. The Silver to BigQuery delay is measured separately (see Section 8) |
-| G2 | Marketing, Finance | Correct streaming results | Zero duplicate event IDs in Silver after a one-hour replay; events up to 10 minutes late land in the correct windows; events later than the watermark go to a late-data table, never dropped silently |
+| G2a | Marketing, Finance | No duplicate events | Zero duplicate event IDs in Silver after a one-hour replay |
+| G2b | Marketing, Finance | Late events counted | Events up to 10 minutes late land in the correct windows |
+| G2c | Marketing, Finance | Very late events kept | Events later than the watermark go to a late-data table, never dropped silently |
 | G3 | Customer success | Fresh operational data | Postgres inserts, updates and deletes visible in BigQuery within 2 minutes at p95, measured with a timestamp written at the source |
 | G4 | Finance | Trusted revenue and customer 360 | Gold tables reconcile to source orders to the cent; daily marts ready by 06:00 IST |
 | G5 | Security and compliance | PII protected by default | Analyst role sees masked email and phone; steward role sees raw values |
+| G5b | Security and compliance | PII access is auditable | Data access logs show who read a PII column; one saved example query is the evidence |
 | G6 | Engineering leadership | Safe reprocessing | A 30-day backfill reproduces the original row counts and checksums |
 | G7 | Engineering leadership | Failures are noticed fast | Alerts within 5 minutes for pipeline failure, Pub/Sub backlog and stale data |
 
@@ -36,6 +39,7 @@ Engineering goals: all infrastructure in Terraform, every change through a pull 
 - **Self-managed CDC with Debezium.** Datastream gives the same outcome with far less operational work. We document the trade-off in an ADR instead of building both.
 - **24/7 on-call and formal SLAs.** There is no real business or pager. We write alert runbooks and run failure drills to practice the thinking.
 - **Sustained peak throughput.** The simulator can reach 5,000 events per second, but we run it at that rate only briefly for benchmarks, because holding it would burn the trial credit without new learning.
+- **An always-on environment.** Dev and prod are only switched on during work and demo sessions, because idle Composer, Dataproc, Cloud SQL and Datastream would burn the trial credit. Freshness and alert goals only apply while the environment is running.
 
 ## 3. Stakeholders and requirements
 
@@ -178,7 +182,11 @@ Each question has an owner and a date to resolve it.
 
 1. **How will BigQuery read the Iceberg Silver tables, and how much delay does that add?** This decides whether the dashboard is as fresh as G1. Owner: me. Resolve by: end of Week 3.
 2. **Does the Datastream staleness setting for BigQuery allow G3 (2 minutes)?** I must check the docs before promising it. Owner: me. Resolve by: start of Week 4, before configuring CDC.
-3. **How do we route events older than the watermark to a late-data table (G2)?** Spark discards them by default, so we need our own logic. Owner: me. Resolve by: end of Week 3.
+3. **How do we route events older than the watermark to a late-data table (G2c)?** Spark discards them by default, so we need our own logic. Owner: me. Resolve by: end of Week 3.
 4. **How do we handle 06:00 IST for G4 when Airflow defaults to UTC?** 06:00 IST is 00:30 UTC. Owner: me. Resolve by: end of Week 2, when the first DAG is written.
 5. **Do the alert thresholds match G7?** The guide fires the stale-data alert after 10 minutes, but G7 promises 5. Either the rule or the goal must change. Owner: me. Resolve by: start of Week 7, when alerts are built.
+6. **Composer 2 or Composer 3?** Section 4.5 lists Composer 3 for Mumbai but Composer 2 is not verified. I must check what can be created and compare the INR cost on the official pricing page. Owner: me. Resolve by: ADR-005, Day 5.
+7. **Does Dataproc Serverless (Serverless for Apache Spark) run in asia-south1?** Section 4.5 says likely, not confirmed. Owner: me. Resolve by: Week 4, by running a real job.
+8. **Pub/Sub Spark connector or a Kafka-compatible bridge, and what is the Terraform syntax for the message storage policy?** Time-box the connector to 2 days and record the choice in an ADR. Owner: me. Resolve by: end of Week 3.
+9. **What does the platform cost per month in INR?** The budgets are provisional until a cost model exists. Owner: me. Resolve by: before the first paid resources are created.
 
