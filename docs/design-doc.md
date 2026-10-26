@@ -225,7 +225,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 
 | ADR | Decision | Status | Notes |
 |---|---|---|---|
-| ADR-001 | Spark on Dataproc (now Managed Service for Apache Spark) for streaming and batch | Not written | Compare honestly with Dataflow and BigQuery SQL. Note the rename. |
+| ADR-001 | Spark on Dataproc (now Managed Service for Apache Spark) for streaming and batch | Accepted | docs/adr/001-spark-on-managed-spark.md |
 | ADR-002 | Iceberg as the lake table format | Not written | Compare with Delta and plain Parquet. |
 | ADR-003 | Datastream for CDC | Not written | Less control than Debezium, much less operations work. |
 | ADR-004 | dbt for warehouse transformation | Not written | Tests, docs and lineage built in. |
