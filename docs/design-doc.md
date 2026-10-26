@@ -175,6 +175,19 @@ Open items: Composer 2 vs 3 (ADR-005), Dataproc Serverless proof (Week 4), exact
 
 ## 5. Data sources and data design
 ## 6. Key design decisions (link ADRs)
+
+Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered, Decision, Consequences). Update the status here when each one lands (issue #13).
+
+| ADR | Decision | Status | Notes |
+|---|---|---|---|
+| ADR-001 | Spark on Dataproc (now Managed Service for Apache Spark) for streaming and batch | Not written | Compare honestly with Dataflow and BigQuery SQL. Note the rename. |
+| ADR-002 | Iceberg as the lake table format | Not written | Compare with Delta and plain Parquet. |
+| ADR-003 | Datastream for CDC | Not written | Less control than Debezium, much less operations work. |
+| ADR-004 | dbt for warehouse transformation | Not written | Tests, docs and lineage built in. |
+| ADR-005 | Composer for orchestration | Not written | Verify Composer 2 vs 3 and compare INR cost (open question 6). |
+| ADR-006 | Medallion layout | Not written | Clear contracts between layers, easy reprocessing. |
+| ADR-007 | Dev and prod as separate GCP projects | Not written | Blast-radius isolation, separate IAM and budgets. |
+| ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
 ## 7. Risks and mitigations
 ## 8. Open questions
 
