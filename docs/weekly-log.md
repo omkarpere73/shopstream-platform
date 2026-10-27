@@ -19,6 +19,9 @@ Done:
 - Board cleanup: #13 reopened because ADRs are not written, #27 created for diagram pass 2
 - Squash-only merge setting applied on 26 Oct (see correction in the PR #16 incident)
 - Self-review comments added to PRs #24 and #26
+- ADRs 001 to 008 written and accepted (PRs #38 to #45); issue #13 closed; design doc section 6 index updated
+- Design doc sections 5 to 8 merged (PRs #34 to #37)
+- Budget alerts confirmed in the billing console for both projects (27 Oct)
 
 Broke and how I fixed it:
 - Labelled the wrong GCP project (`My First Project`) on the first attempt. Fixed by
@@ -52,12 +55,24 @@ Broke and how I fixed it:
 - Fix: renamed #13, #14 and #15; reopened #13 and moved it to Backlog; kept #12 closed because pass 1 shipped; created #27 for diagram pass 2.
 - Prevention: commits and PRs reference the issue number (#N); F-n is only a label. Close a ticket only when its acceptance criteria are met.
 
+### Incident: zsh glob error stopped a command chain
+- What happened: a chained command with grep --include=*.md printed `zsh: no matches found` and the rest of the chain did not run.
+- Detection: the error printed in the terminal and the later sections of the output were missing.
+- Root cause: zsh expanded the unquoted *.md before grep ran, found no file, and stopped. The command was written by my mentor.
+- Impact: none. One extra step; the branch had already been created correctly.
+- Prevention: quote glob patterns (--include='*.md'); use ; instead of && in read-only chains so one empty result cannot stop the rest.
+
 Decisions made (link ADR):
 - Repo is public so rulesets are enforced (they need a paid plan on private repos).
 - Squash merge only, to keep one commit per PR on main.
 - Per-project budgets. Alerts only notify, so the trial credit plus a teardown script
   are the real cost protection.
-- ADRs not written yet (issue #13, label F-9). Planned for Day 5.
+- ADRs 001 to 008 written and accepted: docs/adr/ (index in design doc section 6).
+- Composer 3, created only for sessions (ADR-005). Open question 6 is partly answered; the Mumbai INR price is still unread.
+- Dead-letter sink is a GCS path (ADR-008). Alert threshold and retention are TBD until measured.
+- Open design question: Datastream merge mode keeps current state only, so CDC Bronze is not append-only (ADR-003, ADR-006). Decide in Week 4 and Week 5 using SCD2 and GDPR needs.
+- Risk: Bronze holds raw PII and the guide tags only Silver and Gold. Limit Bronze access to pipeline_sa; check in Week 6.
+- Drift: Google renamed Dataproc, and the Composer pricing page now says Managed Service for Apache Airflow (Gen 2 and Gen 3).
 
 Metrics captured:
 - Free trial credit: INR 28,796.63
@@ -65,8 +80,7 @@ Metrics captured:
 - Budgets: dev INR 1,500 per month, prod INR 500 per month (provisional until cost model)
 
 Next week:
-- ADRs 001 to 008 (issue #13). ADR-001: note the Dataproc rename. ADR-005: verify Composer 2 vs 3 and compare INR cost from the official pricing page
-- Design doc: fill sections 5, 6 (ADR index) and 7, and close the small section 1 gaps
+- Design doc: sections 5 to 8 are done; re-check the small section 1 gaps
 - Architecture diagram pass 2 (issue #27)
 - First real Terraform resources (modules, plan before apply in dev) and a teardown script. This is the open Week 1 deliverable. Cost warning first
 - INR cost model
