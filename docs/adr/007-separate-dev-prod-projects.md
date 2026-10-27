@@ -18,5 +18,5 @@ Two separate projects, shopstream-dev and shopstream-prod. The biggest reason: a
 ## Consequences
 - Easier: each env has its own Terraform folder (terraform/envs/dev and terraform/envs/prod), its own state bucket and its own project_id; labels env, owner and project are enforced in both.
 - Harder: two projects to keep in sync; prod only changes through CD, so I must get CI/CD working in Week 7 before real prod deploys.
-- Not yet verified: that each project has its own budget alert at 50, 80 and 100 percent. Check in the billing console.
+- Verified by me on 2026-10-27: budget-dev and budget-prod exist with budget alerts at 50, 80 and 100 percent.
 - Revisit: add a staging project only if I need a pre-prod test step.
