@@ -1,4 +1,4 @@
-.PHONY: lint format test
+.PHONY: lint format test teardown-dev
 lint:
 	ruff check .
 	black --check .
@@ -7,3 +7,5 @@ format:
 	black .
 test:
 	pytest -q
+teardown-dev:
+	bash scripts/teardown-dev.sh
