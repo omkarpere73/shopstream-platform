@@ -230,7 +230,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-003 | Datastream for CDC | Accepted | docs/adr/003-datastream-for-cdc.md |
 | ADR-004 | dbt for warehouse transformation | Accepted | docs/adr/004-dbt-for-warehouse-transformation.md |
 | ADR-005 | Composer for orchestration | Accepted | docs/adr/005-composer-for-orchestration.md |
-| ADR-006 | Medallion layout | Not written | Clear contracts between layers, easy reprocessing. |
+| ADR-006 | Medallion layout | Accepted | docs/adr/006-medallion-layout.md |
 | ADR-007 | Dev and prod as separate GCP projects | Accepted | docs/adr/007-separate-dev-prod-projects.md |
 | ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
 ## 7. Risks and mitigations
