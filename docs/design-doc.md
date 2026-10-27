@@ -231,7 +231,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-004 | dbt for warehouse transformation | Not written | Tests, docs and lineage built in. |
 | ADR-005 | Composer for orchestration | Not written | Verify Composer 2 vs 3 and compare INR cost (open question 6). |
 | ADR-006 | Medallion layout | Not written | Clear contracts between layers, easy reprocessing. |
-| ADR-007 | Dev and prod as separate GCP projects | Not written | Blast-radius isolation, separate IAM and budgets. |
+| ADR-007 | Dev and prod as separate GCP projects | Accepted | docs/adr/007-separate-dev-prod-projects.md |
 | ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
 ## 7. Risks and mitigations
 
