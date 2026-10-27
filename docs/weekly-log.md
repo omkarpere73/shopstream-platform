@@ -22,11 +22,14 @@ Done:
 - ADRs 001 to 008 written and accepted (PRs #38 to #45); issue #13 closed; design doc section 6 index updated
 - Design doc sections 5 to 8 merged (PRs #34 to #37)
 - Budget alerts confirmed in the billing console for both projects (27 Oct)
+- First Terraform resources in dev (issue #48, PR #49): modules storage, bigquery and iam; 9 resources in asia-south1 (2 buckets, 3 datasets, 1 service account, 3 API enablements); checked with gcloud and bq; the second plan said No changes
+- `make teardown-dev` (scripts/teardown-dev.sh): dev only, refuses if TF_VAR_ or tfvars could override the project; refused a fake override in a test; destroyed 9 and re-applied 9 from empty; the state bucket and the 3 enabled APIs were untouched
 
 Broke and how I fixed it:
 - Labelled the wrong GCP project (`My First Project`) on the first attempt. Fixed by
   checking the project picker before every save. Prevention: labels will come from
   Terraform, not the console.
+- Not a failure, but two surprises in #48: a bucket showed an extra label key `goog-terraform-provisioned` that I did not set (the provider adds it; not verified in the docs), and `bq ls --format=csv` printed nothing although the 3 datasets existed (cause not verified; plain `bq ls` listed them). Prevention: check the real cloud after apply, not only the plan.
 
 ### Incident: test commit leaked into PR #16
 - What happened: an empty test commit was already on local main when I created the
@@ -73,6 +76,8 @@ Decisions made (link ADR):
 - Open design question: Datastream merge mode keeps current state only, so CDC Bronze is not append-only (ADR-003, ADR-006). Decide in Week 4 and Week 5 using SCD2 and GDPR needs.
 - Risk: Bronze holds raw PII and the guide tags only Silver and Gold. Limit Bronze access to pipeline_sa; check in Week 6.
 - Drift: Google renamed Dataproc, and the Composer pricing page now says Managed Service for Apache Airflow (Gen 2 and Gen 3).
+- force_destroy and delete_contents_on_destroy are true in dev only, so teardown works on non-empty buckets and datasets. Prod must set both to false when it is wired in Week 7.
+- disable_on_destroy = false on the API enablements, so a destroy never switches off APIs that the state bucket also uses.
 
 Metrics captured:
 - Free trial credit: INR 28,796.63
@@ -82,5 +87,4 @@ Metrics captured:
 Next week:
 - Design doc: sections 5 to 8 are done; re-check the small section 1 gaps
 - Architecture diagram pass 2 (issue #27)
-- First real Terraform resources (modules, plan before apply in dev) and a teardown script. This is the open Week 1 deliverable. Cost warning first
 - INR cost model
