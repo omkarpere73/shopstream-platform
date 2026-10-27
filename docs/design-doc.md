@@ -229,7 +229,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-002 | Iceberg as the lake table format | Accepted | docs/adr/002-iceberg-lake-table-format.md |
 | ADR-003 | Datastream for CDC | Accepted | docs/adr/003-datastream-for-cdc.md |
 | ADR-004 | dbt for warehouse transformation | Accepted | docs/adr/004-dbt-for-warehouse-transformation.md |
-| ADR-005 | Composer for orchestration | Not written | Verify Composer 2 vs 3 and compare INR cost (open question 6). |
+| ADR-005 | Composer for orchestration | Accepted | docs/adr/005-composer-for-orchestration.md |
 | ADR-006 | Medallion layout | Not written | Clear contracts between layers, easy reprocessing. |
 | ADR-007 | Dev and prod as separate GCP projects | Accepted | docs/adr/007-separate-dev-prod-projects.md |
 | ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
@@ -254,7 +254,7 @@ Each question has an owner and a date to resolve it.
 3. **How do we route events older than the watermark to a late-data table (G2c)?** Spark discards them by default, so we need our own logic. Owner: me. Resolve by: end of Week 3.
 4. **How do we handle 06:00 IST for G4 when Airflow defaults to UTC?** 06:00 IST is 00:30 UTC. Owner: me. Resolve by: end of Week 2, when the first DAG is written.
 5. **Do the alert thresholds match G7?** The guide fires the stale-data alert after 10 minutes, but G7 promises 5. Either the rule or the goal must change. Owner: me. Resolve by: start of Week 7, when alerts are built.
-6. **Composer 2 or Composer 3?** Section 4.5 lists Composer 3 for Mumbai but Composer 2 is not verified. I must check what can be created and compare the INR cost on the official pricing page. Owner: me. Resolve by: ADR-005, Day 5.
+6. **Composer 2 or Composer 3?** Section 4.5 lists Composer 3 for Mumbai but Composer 2 is not verified. I must check what can be created and compare the INR cost on the official pricing page. Owner: me. Resolve by: ADR-005, Day 5. Status: partly answered in ADR-005 (Composer 3 chosen; Composer 2 can still be created through the CLI, API or Terraform). The INR price for Mumbai is still unread from the Cloud Platform SKU page.
 7. **Does Dataproc Serverless (Serverless for Apache Spark) run in asia-south1?** Section 4.5 says likely, not confirmed. Owner: me. Resolve by: Week 4, by running a real job.
 8. **Pub/Sub Spark connector or a Kafka-compatible bridge, and what is the Terraform syntax for the message storage policy?** Time-box the connector to 2 days and record the choice in an ADR. Owner: me. Resolve by: end of Week 3.
 9. **What does the platform cost per month in INR?** The budgets are provisional until a cost model exists. Owner: me. Resolve by: before the first paid resources are created.
