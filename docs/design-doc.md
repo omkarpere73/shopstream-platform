@@ -104,7 +104,7 @@ Editable source: `diagrams/streaming-path.excalidraw`.
 
 1. The event simulator sends a JSON event (schema_version 2) to a Pub/Sub topic. It also writes the event ID to a ground-truth log at send time. The log is what lets us prove "no loss, no duplicates" after a restart.
 2. One Spark Structured Streaming job on Dataproc reads from Pub/Sub. The read mechanism (Pub/Sub connector or a fallback) is pending an ADR.
-3. The job parses and validates each row against an explicit schema. Rows that fail go to the dead-letter sink with the raw payload, the error reason and the ingestion time. The sink type (GCS path or Pub/Sub topic) is pending ADR-008. The pipeline keeps running.
+3. The job parses and validates each row against an explicit schema. Rows that fail go to the dead-letter sink with the raw payload, the error reason and the ingestion time. The sink is a GCS path (ADR-008). The pipeline keeps running.
 4. Valid rows are appended untouched to Bronze (Iceberg on GCS, partitioned by event date). Bronze is written before dedupe, so it keeps duplicates and is a faithful record of what arrived.
 5. The job then deduplicates on `event_id` inside a 10-minute watermark on `event_time` and writes Silver (Iceberg on GCS).
 6. Each query writes offsets and state to its own checkpoint path on GCS, and reads them back on restart. Checkpoint locations are never shared between queries.
@@ -123,7 +123,7 @@ Editable source: `diagrams/streaming-path.excalidraw`.
 | Ground-truth log | Independent record of every event ID sent | Durable file or table (location TBD) | Cannot prove no-loss for that run. Pipeline is unaffected. | Manual check before each restart test |
 | Pub/Sub topic | Buffers events between producer and Spark | Managed by Google | Managed service; messages are retained until acknowledged | Oldest unacked message age over 5 minutes |
 | Spark Structured Streaming job | Parse, validate, write Bronze, dedupe, write Silver | Checkpoint on GCS (job holds no durable state) | Unacknowledged messages stay in Pub/Sub. A restart resumes from the checkpoint. A half-finished batch may be replayed, so sinks must be idempotent. | Job not running, or processing lag growing for 10 minutes |
-| Dead-letter sink | Quarantines rows that fail parse or validation | GCS path or Pub/Sub topic (pending ADR-008) | Bad rows could be lost, so this sink must be at least as reliable as Bronze | Dead-letter rate over threshold (TBD) |
+| Dead-letter sink | Quarantines rows that fail parse or validation | GCS path (ADR-008) | Bad rows could be lost, so this sink must be at least as reliable as Bronze | Dead-letter rate over threshold (TBD) |
 | Bronze (Iceberg on GCS) | Faithful raw copy of valid events, before dedupe | GCS | Raw valid events could be lost. Replay from Pub/Sub works only if retention of acknowledged messages is enabled (pending ADR). The ground-truth log holds IDs only, so it detects loss but cannot restore data. GCS object versioning is a mitigation (TBD) | Volume vs 7-day baseline (guide Section 15) |
 | Silver (Iceberg on GCS) | Deduplicated, typed events | GCS | Rebuild from Bronze | Freshness: max event_time older than 10 minutes |
 | Checkpoint (GCS) | Offsets, state and a log of finished batches | GCS, one path per query, never shared | If lost, the job cannot resume safely and must be rebuilt from Bronze | Bucket versioning and access alerts (TBD, Week 3) |
@@ -166,12 +166,12 @@ Checked against official Google Cloud docs on 25 Oct 2026. Decision: `asia-south
 | Datastream | Yes | datastream/docs/ip-allowlists-and-regions | Listed in the regions table |
 | Dataproc clusters (now called Managed Service for Apache Spark) | Yes | dataproc/docs/resources/faq, dataproc/docs/concepts/cluster-region | FAQ says all regions and zones |
 | Dataproc Serverless batches | Likely, not directly confirmed | Billing SKU lists only | Prove with a tiny batch job in Week 4 |
-| Cloud Composer | Composer 3: yes. Composer 2: not verified | cloud.google.com/composer/pricing | Choose version in ADR-005 |
+| Cloud Composer | Composer 3: yes. Composer 2: creatable through the CLI, API or Terraform while supported; Mumbai not verified | cloud.google.com/composer/pricing | ADR-005 chose Composer 3 |
 | Pub/Sub | Yes, through a message storage policy | pubsub/docs/resource-location-restriction | Topics are global, so restrict where messages are stored |
 | BigQuery | Yes | bigquery/docs/locations | Datasets can be created in asia-south1 |
 | Cloud SQL (Postgres) | Yes | sql/docs/postgres/region-availability-overview | Location is chosen at instance creation. N4 machines not listed for Mumbai |
 
-Open items: Composer 2 vs 3 (ADR-005), Dataproc Serverless proof (Week 4), exact Terraform syntax for the Pub/Sub storage policy (Week 3).
+Open items: Composer 2 Mumbai and INR price (ADR-005), Dataproc Serverless proof (Week 4), exact Terraform syntax for the Pub/Sub storage policy (Week 3).
 
 ## 5. Data sources and data design
 
@@ -232,7 +232,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-005 | Composer for orchestration | Accepted | docs/adr/005-composer-for-orchestration.md |
 | ADR-006 | Medallion layout | Accepted | docs/adr/006-medallion-layout.md |
 | ADR-007 | Dev and prod as separate GCP projects | Accepted | docs/adr/007-separate-dev-prod-projects.md |
-| ADR-008 | Dead-letter handling strategy | Not written | Never drop bad data silently; quarantine and alert. |
+| ADR-008 | Dead-letter handling strategy | Accepted | docs/adr/008-dead-letter-handling.md |
 ## 7. Risks and mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
