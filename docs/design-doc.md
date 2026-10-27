@@ -228,7 +228,7 @@ Every non-obvious choice gets an ADR in `docs/adr/` (Context, Options considered
 | ADR-001 | Spark on Dataproc (now Managed Service for Apache Spark) for streaming and batch | Accepted | docs/adr/001-spark-on-managed-spark.md |
 | ADR-002 | Iceberg as the lake table format | Accepted | docs/adr/002-iceberg-lake-table-format.md |
 | ADR-003 | Datastream for CDC | Accepted | docs/adr/003-datastream-for-cdc.md |
-| ADR-004 | dbt for warehouse transformation | Not written | Tests, docs and lineage built in. |
+| ADR-004 | dbt for warehouse transformation | Accepted | docs/adr/004-dbt-for-warehouse-transformation.md |
 | ADR-005 | Composer for orchestration | Not written | Verify Composer 2 vs 3 and compare INR cost (open question 6). |
 | ADR-006 | Medallion layout | Not written | Clear contracts between layers, easy reprocessing. |
 | ADR-007 | Dev and prod as separate GCP projects | Accepted | docs/adr/007-separate-dev-prod-projects.md |
