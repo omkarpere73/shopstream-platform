@@ -4,8 +4,10 @@ import json
 from datetime import UTC, datetime, timedelta
 from functools import cache
 
+import pytest
 from event_generator import generate_events
 from send_plan import (
+    FateRates,
     PlannedSend,
     build_send_plan,
     ground_truth_lines,
@@ -35,7 +37,7 @@ def parsed(send: PlannedSend) -> dict[str, object] | None:
 
 
 def kind_counts() -> dict[str, int]:
-    counts = {"valid": 0, "duplicate": 0, "late": 0, "malformed": 0}
+    counts = {"valid": 0, "duplicate": 0, "late": 0, "very_late": 0, "malformed": 0}
     for send in big_plan():
         counts[send.kind] += 1
     return counts
@@ -58,7 +60,8 @@ def test_every_send_has_one_log_line_and_seq_counts_up() -> None:
 
 def test_send_count_adds_up() -> None:
     counts = kind_counts()
-    assert counts["valid"] + counts["late"] + counts["malformed"] == COUNT
+    fates = ("valid", "late", "very_late", "malformed")
+    assert sum(counts[fate] for fate in fates) == COUNT
     assert len(big_plan()) == COUNT + counts["duplicate"]
 
 
@@ -67,6 +70,7 @@ def test_rates_are_close_to_the_targets() -> None:
     assert 0.010 < counts["duplicate"] / COUNT < 0.020
     assert 0.020 < counts["late"] / COUNT < 0.040
     assert 0.002 < counts["malformed"] / COUNT < 0.008
+    assert 0.002 < counts["very_late"] / COUNT < 0.008
 
 
 def test_plan_is_in_send_time_order() -> None:
@@ -90,14 +94,38 @@ def test_duplicate_repeats_an_earlier_valid_event() -> None:
     assert duplicates > 0
 
 
-def test_late_events_arrive_one_to_ten_minutes_after_event_time() -> None:
+def test_late_events_arrive_one_to_nine_minutes_after_event_time() -> None:
     late = [send for send in big_plan() if send.kind == "late"]
     assert late
     for send in late:
         data = parsed(send)
         assert data is not None
         event_time = datetime.fromisoformat(str(data["event_time"]))
-        assert 60 <= (send.send_time - event_time).total_seconds() <= 600
+        assert 60 <= (send.send_time - event_time).total_seconds() <= 540
+
+
+def test_very_late_events_arrive_after_the_ten_minute_watermark() -> None:
+    very_late = [send for send in big_plan() if send.kind == "very_late"]
+    assert very_late
+    for send in very_late:
+        data = parsed(send)
+        assert data is not None
+        event_time = datetime.fromisoformat(str(data["event_time"]))
+        assert 720 <= (send.send_time - event_time).total_seconds() <= 1200
+
+
+def test_bad_fate_rates_are_rejected() -> None:
+    with pytest.raises(ValueError, match="fate rates"):
+        FateRates(late=-0.1)
+    with pytest.raises(ValueError, match="fate rates"):
+        FateRates(malformed=0.5, late=0.5)
+
+
+def test_zero_rates_make_every_send_valid() -> None:
+    rates = FateRates(malformed=0, late=0, very_late=0, duplicate=0)
+    plan = build_send_plan(generate_events(3, 500, START, STEP), 3, rates)
+    assert len(plan) == 500
+    assert {send.kind for send in plan} == {"valid"}
 
 
 def test_only_malformed_sends_fail_the_field_check() -> None:

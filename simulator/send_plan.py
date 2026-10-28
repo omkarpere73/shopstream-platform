@@ -13,13 +13,35 @@ from decimal import Decimal, InvalidOperation
 
 from event_generator import EVENT_TYPES, Event, format_event_time
 
-# My choice inside the guide ranges: duplicates 1 to 2 %, late 2 to 5 %, malformed 0.5 %.
-MALFORMED_RATE = 0.005
-LATE_RATE = 0.03
-DUPLICATE_RATE = 0.015
+# Delays are in seconds. The watermark is 600 s, so "late" stays inside it (kept) and
+# "very_late" is well past it (12 to 20 minutes), for the late-data table drill.
 MIN_LATE_SECONDS = 60
-MAX_LATE_SECONDS = 600
+MAX_LATE_SECONDS = 540
+MIN_VERY_LATE_SECONDS = 720
+MAX_VERY_LATE_SECONDS = 1200
 MAX_DUPLICATE_GAP_SECONDS = 30
+
+
+@dataclass(frozen=True)
+class FateRates:
+    """Share of events that get each fate. The rest are plain valid events.
+
+    My choice inside the guide ranges: duplicates 1 to 2 %, late 2 to 5 %, malformed
+    0.5 %. very_late is extra, for the 15 minutes late drill.
+    """
+
+    malformed: float = 0.005
+    late: float = 0.03
+    very_late: float = 0.005
+    duplicate: float = 0.015
+
+    def __post_init__(self) -> None:
+        rates = (self.malformed, self.late, self.very_late, self.duplicate)
+        if any(rate < 0 for rate in rates) or sum(rates) >= 1:
+            raise ValueError("fate rates must be at least 0 and add up to less than 1")
+
+
+DEFAULT_RATES = FateRates()
 
 REQUIRED_FIELDS = frozenset(
     {
@@ -42,7 +64,10 @@ ALLOWED_EVENT_TYPES = frozenset(name for name, _ in EVENT_TYPES)
 
 @dataclass(frozen=True)
 class PlannedSend:
-    """One thing the simulator will send. kind is valid, duplicate, late or malformed."""
+    """One thing the simulator will send.
+
+    kind is valid, duplicate, late, very_late or malformed.
+    """
 
     seq: int
     kind: str
@@ -82,24 +107,34 @@ def break_event(rng: random.Random, event: Event) -> str:
     return json.dumps(broken)
 
 
-def build_send_plan(events: list[Event], seed: int) -> list[PlannedSend]:
+def build_send_plan(
+    events: list[Event], seed: int, rates: FateRates = DEFAULT_RATES
+) -> list[PlannedSend]:
     """Give every event one fate and return all sends in send-time order.
 
-    Fates are exclusive: malformed, late, duplicate (sent twice) or valid. The same
-    events and the same seed always give the same plan.
+    Fates are exclusive: malformed, late, very_late, duplicate (sent twice) or valid.
+    The same events, seed and rates always give the same plan.
     """
     rng = random.Random(seed)
+    malformed_limit = rates.malformed
+    late_limit = malformed_limit + rates.late
+    very_late_limit = late_limit + rates.very_late
+    duplicate_limit = very_late_limit + rates.duplicate
     drafts: list[tuple[datetime, int, str, str]] = []
     for event in events:
         event_time = datetime.fromisoformat(str(event["event_time"]))
         text = json.dumps(event)
         roll = rng.random()
-        if roll < MALFORMED_RATE:
+        if roll < malformed_limit:
             drafts.append((event_time, len(drafts), "malformed", break_event(rng, event)))
-        elif roll < MALFORMED_RATE + LATE_RATE:
+        elif roll < late_limit:
             delay = timedelta(seconds=rng.randint(MIN_LATE_SECONDS, MAX_LATE_SECONDS))
             drafts.append((event_time + delay, len(drafts), "late", text))
-        elif roll < MALFORMED_RATE + LATE_RATE + DUPLICATE_RATE:
+        elif roll < very_late_limit:
+            seconds = rng.randint(MIN_VERY_LATE_SECONDS, MAX_VERY_LATE_SECONDS)
+            send_time = event_time + timedelta(seconds=seconds)
+            drafts.append((send_time, len(drafts), "very_late", text))
+        elif roll < duplicate_limit:
             drafts.append((event_time, len(drafts), "valid", text))
             gap = timedelta(seconds=rng.randint(1, MAX_DUPLICATE_GAP_SECONDS))
             drafts.append((event_time + gap, len(drafts), "duplicate", text))
