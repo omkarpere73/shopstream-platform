@@ -2,7 +2,7 @@
 
 - Status: draft v0.1
 - Author: omkarpere
-- Last updated: 2026-10-23
+- Last updated: 2026-10-27
 
 ## 1. Problem and goals
 ShopStream is a fictional online retailer. Today its teams work from different, delayed views of the business. Marketing cannot see the shopper funnel live. Finance cannot prove that reported revenue matches orders. Customer success has no single view of a customer, and security has no guarantee that personal data is protected. This project builds one platform on Google Cloud that serves all four needs with data that is fresh, correct and safe.
@@ -94,7 +94,7 @@ If data were 100 times larger, the first things to revisit would be Spark cluste
 
 ### 4.1 Streaming path (diagram pass 1)
 
-This section covers the streaming path only. CDC, the FX batch job, BigQuery, dbt and Composer are added in diagram pass 2.
+This section covers the streaming path only. The rest of the platform (CDC, the FX batch job, BigQuery, dbt, Composer and serving) is in Section 4.6.
 
 ![ShopStream streaming path](diagrams/streaming-path.png)
 
@@ -172,6 +172,61 @@ Checked against official Google Cloud docs on 25 Oct 2026. Decision: `asia-south
 | Cloud SQL (Postgres) | Yes | sql/docs/postgres/region-availability-overview | Location is chosen at instance creation. N4 machines not listed for Mumbai |
 
 Open items: Composer 2 Mumbai and INR price (ADR-005), Dataproc Serverless proof (Week 4), exact Terraform syntax for the Pub/Sub storage policy (Week 3).
+
+### 4.6 Rest of the platform (diagram pass 2)
+
+Pass 2 adds the CDC path, the FX batch path, BigQuery, dbt, Composer and serving. The Spark job and the Silver events (Iceberg) from pass 1 are reused and not listed again.
+
+![ShopStream platform overview](diagrams/platform-overview.png)
+
+Editable source: `diagrams/platform-overview.excalidraw`.
+
+Line style: solid arrows move data. Dashed arrows are control only (Composer starts or watches a job and moves no data).
+
+**Boxes (new in pass 2)**
+
+| Box | Role | Layer |
+|---|---|---|
+| Order generator | Simulates inserts, updates and deletes in Postgres | Source |
+| Cloud SQL Postgres | OLTP database: customers, addresses, products, orders, order_items, payments | Source |
+| Datastream | Managed change data capture from Postgres to BigQuery, merge mode | Ingestion |
+| BigQuery bronze_cdc | Current-state copy of the Postgres tables. Not append-only (ADR-006) | Bronze |
+| FX rates API | Free public exchange-rate API, one pull per day | Source |
+| GCS FX raw | Daily rates landed as Parquet, partitioned by date, untouched | Bronze |
+| PySpark batch job | Validates FX rates and writes FX Silver on Dataproc Serverless. A rerun overwrites one date only | Batch compute |
+| FX Silver | Cleaned daily rates. Format not decided (Parquet or Iceberg) | Silver |
+| BigQuery view of Iceberg Silver | BigLake or external table over the Silver events (open question 1) | Silver |
+| BigQuery silver_core | Silver models built by dbt | Silver |
+| dbt Core | Builds Silver and Gold, runs tests, SCD2 snapshot for dim_customer | Transformation |
+| BigQuery gold_marts | Gold tables from Section 5.4 (fct_, dim_, mart_) | Gold |
+| Looker Studio | Dashboards: live funnel, daily revenue, customer cohorts | Serving |
+| Cloud Composer | Managed Airflow. Starts and watches jobs, moves no data | Orchestration |
+
+**Data flows (one row per arrow, numbering continues from 4.3)**
+
+| # | From | To | What flows | Rule |
+|---|---|---|---|---|
+| 8 | Order generator | Cloud SQL Postgres | Inserts, updates, deletes | Includes GDPR-style customer deletes |
+| 9 | Cloud SQL Postgres | Datastream | Row changes read from the write-ahead log | Needs logical replication, a replication user and a publication (guide Section 11) |
+| 10 | Datastream | BigQuery bronze_cdc | Row changes applied in merge mode | Deletes are applied. Lag against G3 not verified (open question 2) |
+| 11 | FX rates API | GCS FX raw | Daily rates as Parquet by date | Pulled by an Airflow task in fx_rates_daily. A rerun overwrites that date only |
+| 12 | GCS FX raw | PySpark batch job | Daily rates read for validation | Validation rules come from the FX data contract (Week 2) |
+| 13 | PySpark batch job | FX Silver | Validated rates | Partition overwrite by date, so a rerun never duplicates |
+| 14 | Silver events (Iceberg, pass 1) | BigQuery view of Iceberg Silver | Silver events read in place | Read path and delay not verified (open question 1) |
+| 15 | BigQuery bronze_cdc | dbt Core | Raw CDC tables | dbt filters deleted rows and orders changes by source timestamp (guide Section 11) |
+| 16 | BigQuery view of Iceberg Silver | dbt Core | Silver events | Feeds fct_events_funnel_hourly incrementally |
+| 17 | FX Silver | dbt Core | Daily rates | Needed for USD revenue. Route into BigQuery not decided (open question 10) |
+| 18 | dbt Core | BigQuery silver_core | Cleaned, typed models | dbt tests on every model |
+| 19 | dbt Core | BigQuery gold_marts | Facts, dimensions, marts | Partitioned and clustered where Section 5.4 says so |
+| 20 | BigQuery gold_marts | Looker Studio | Query results | Read only for the dashboards |
+| 21 | Cloud Composer (control) | FX rates API | Starts the daily pull | Control only. Daily 01:00, time zone not decided (open question 4) |
+| 22 | Cloud Composer (control) | PySpark batch job | Starts the job after the file lands | Control only. A GCS sensor waits for the file (guide Section 12.2) |
+| 23 | Cloud Composer (control) | dbt Core | Starts dbt build and tests | Control only. dbt_build_daily runs when upstream data is ready (dataset-aware scheduling) |
+| 24 | Cloud Composer (control) | Spark job (pass 1) | Restarts the streaming job if it is not healthy | Control only. streaming_job_watchdog, every 10 minutes |
+
+**Consistency rule:** every row in both tables matches one box or arrow label in `platform-overview.png`. If the diagram changes, update these tables in the same pull request.
+
+**Not decided yet:** how FX Silver reaches BigQuery (arrow 17, open question 10) and how BigQuery reads Iceberg Silver (arrow 14, open question 1). Failure behaviour and detection for the pass 2 components are added when each one is built (Weeks 2 to 5).
 
 ## 5. Data sources and data design
 
@@ -258,4 +313,5 @@ Each question has an owner and a date to resolve it.
 7. **Does Dataproc Serverless (Serverless for Apache Spark) run in asia-south1?** Section 4.5 says likely, not confirmed. Owner: me. Resolve by: Week 4, by running a real job.
 8. **Pub/Sub Spark connector or a Kafka-compatible bridge, and what is the Terraform syntax for the message storage policy?** Time-box the connector to 2 days and record the choice in an ADR. Owner: me. Resolve by: end of Week 3.
 9. **What does the platform cost per month in INR?** The budgets are provisional until a cost model exists. Owner: me. Resolve by: before the first paid resources are created.
+10. **How does FX Silver reach BigQuery for the USD conversion (arrow 17)?** The guide says Parquet or Iceberg but not how BigQuery reads it. Likely the same answer as question 1. Owner: me. Resolve by: end of Week 4, when the FX Silver job is built.
 
